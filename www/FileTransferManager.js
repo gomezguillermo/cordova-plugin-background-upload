@@ -1,3 +1,4 @@
+cordova.define("cordova-plugin-background-upload.FileTransferManager", function(require, exports, module) {
 /*
   /*
   *
@@ -25,6 +26,7 @@ var FileTransferManager = function (options) {
     this._handlers = {
 
         'progress': [],
+        'cancelled' : [],
         'success': [],
         'error': []
     };
@@ -44,8 +46,9 @@ var FileTransferManager = function (options) {
         // as operation completeness handler
         if (result && typeof result.progress != 'undefined') {
             that.emit('progress', result);
-        }
-        else {
+        } else if ( result.state  == "CANCELLED") {
+            that.emit('cancelled', result);
+        } else {
             that.emit('success', result);
         }
 
@@ -61,72 +64,76 @@ var FileTransferManager = function (options) {
 
 };
 
-FileTransferManager.prototype.startUpload = function (payload) {
+FileTransferManager.prototype.startUpload = function (payloads) {
 
-    if (payload == null) {
-        this.options.fail({
-            error: "upload settings object is missing or invalid argument"
-        });
-        return;
-    }
-    if (payload.serverUrl == null) {
-        this.options.fail({
-            error: "server url is required"
-        });
-        return;
+    for ( var i = 0, j = payloads.length; i<j; i++) {
+        var payload = payloads[i];
 
-    }
-
-    if (payload.serverUrl.trim() == '') {
-        this.options.fail({
-            error: "invalid server url"
-        });
-        return;
-    }
-
-
-    if (!payload.filePath) {
-        if (payload.file){
-            payload.filePath = payload.file;
-        }else{
+        if (payload == null) {
             this.options.fail({
-                error: "filePath is required"
+                error: "upload settings object is missing or invalid argument"
             });
             return;
         }
+        if (payload.serverUrl == null) {
+            this.options.fail({
+                error: "server url is required"
+            });
+            return;
+
+        }
+
+        if (payload.serverUrl.trim() == '') {
+            this.options.fail({
+                error: "invalid server url"
+            });
+            return;
+        }
+
+
+        if (!payload.filePath) {
+            if (payload.file){
+                payload.filePath = payload.file;
+            }else{
+                this.options.fail({
+                    error: "filePath is required"
+                });
+                return;
+            }
+        }
+
+         if ( payload.id === null || payload.id === undefined ) {
+            this.options.fail({
+                error: "upload id is required"
+            });
+            return;
+        }
+
+        if (!payload.fileKey) {
+            payload.fileKey = "file";
+        }
+
+        if (!this.options) {
+            console.error("FileTransferManager not properly initialised. Call FileTransferManager.init(options) first");
+            return;
+        }
+
+        //remove the prefix for mobile urls
+         payload.filePath = payload.filePath.replace('file://', '');
     }
 
-     if (!payload.id) {
-        this.options.fail({
-            error: "upload id is required"
-        });
-        return;
-    }
-
-    if (!payload.fileKey) {
-        payload.fileKey = "file";
-    }
-
-    if (!this.options) {
-        console.error("FileTransferManager not properly initialised. Call FileTransferManager.init(options) first");
-        return;
-    }
-
-    //remove the prefix for mobile urls
-    payload.filePath = payload.filePath.replace('file://', '');
-
-    exec(this.options.success, this.options.fail, "FileTransferBackground", "startUpload", [payload]);
+    exec(this.options.success, this.options.fail, "FileTransferBackground", "startUpload", [payloads]);
 
 };
 
-FileTransferManager.prototype.removeUpload = function (id, success, fail) {
+FileTransferManager.prototype.removeUpload = function (ids, success, fail) {
 
-    if (!id) {
-        fail({error: "upload id is required" });
+    if (!ids) {
+        fail({error: "upload ids is required" });
         return;
     }
 
-    exec(success,fail, "FileTransferBackground", "removeUpload", [id]);
+    exec(success,fail, "FileTransferBackground", "removeUpload", [ids]);
 }
 /**
  * Listen for an event.
@@ -216,3 +223,4 @@ module.exports = {
 
     FileTransferManager: FileTransferManager
 };
+});
