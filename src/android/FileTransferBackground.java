@@ -1,4 +1,3 @@
-
 package com.spoon.backgroundFileUpload;
 
 import android.content.Context;
@@ -145,7 +144,7 @@ public class FileTransferBackground extends CordovaPlugin {
 
                     try {
                       LogMessage("App cancel");
-                      updateStateForUpload(payload.id, UploadState.CANCELLED, null);
+                      //updateStateForUpload(payload.id, UploadState.CANCELLED, null);
 
                       JSONObject objResult = new JSONObject();
                       objResult.put("id", payload.id);
@@ -225,6 +224,8 @@ public class FileTransferBackground extends CordovaPlugin {
           uploadJson.put("serverResponse", serverResponse != null ? serverResponse : "");
         }
         //delete old file
+        LogMessage("*******************************************************");
+        LogMessage("writing to logs:" + uploadDirectoryName + fileId);
         removeUploadInfoFile(fileId);
         //write updated file
         storage.createFile(uploadDirectoryName, fileId + ".json", uploadJson.toString());
@@ -236,7 +237,7 @@ public class FileTransferBackground extends CordovaPlugin {
   }
 
   private void removeUploadInfoFile(String fileId) {
-    storage.deleteFile(uploadDirectoryName, fileId + ".json");
+    //storage.deleteFile(uploadDirectoryName, fileId + ".json");
   }
 
   private JSONArray getUploadHistory() {
@@ -269,7 +270,8 @@ public class FileTransferBackground extends CordovaPlugin {
 
       storage = SimpleStorage.getInternalStorage(this.cordova.getActivity().getApplicationContext());
       storage.createDirectory(uploadDirectoryName);
-      LogMessage("created working directory ");
+      LogMessage("*********************************************");
+      LogMessage("created working directory " + storage.toString() );
 
       networkMonitor = new NetworkMonitor(webView.getContext(),new ConnectionStatusListener() {
         @Override
@@ -330,25 +332,30 @@ public class FileTransferBackground extends CordovaPlugin {
     JSONArray failedUploads = new JSONArray();
     JSONObject upload = null;
 
-    for( int i =0; i < failedUploads.length(); i++)
+    for( int i =0; i < previousUploads.length(); i++)
     {
 
       try {
-        upload = failedUploads.getJSONObject(i);
+        upload = previousUploads.getJSONObject(i);
         String state = upload.getString("state");
         if (state.equalsIgnoreCase(UploadState.FAILED) || state.equalsIgnoreCase(UploadState.STARTED)) {
           failedUploads.put(upload);
         }
-
-        if(failedUploads.length() > 0)
-        {
-          this.upload(failedUploads, uploadCallback);
-        }
+        
       } catch (Exception e) {
         e.printStackTrace();
       }
 
     }
+    try {
+
+      if(failedUploads.length() > 0) {
+        this.upload(failedUploads, uploadCallback);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
   }
 
   public void onDestroy() {
