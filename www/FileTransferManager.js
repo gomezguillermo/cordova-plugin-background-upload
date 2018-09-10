@@ -126,14 +126,19 @@ FileTransferManager.prototype.startUpload = function (payloads) {
 
 };
 
-FileTransferManager.prototype.removeUpload = function (ids, success, fail) {
+FileTransferManager.prototype.removeUpload = function (id, success, fail) {
 
-    if (!ids) {
-        fail({error: "upload ids is required" });
+    if (!id) {
+        fail({error: "upload id is required" });
         return;
     }
 
-    exec(success,fail, "FileTransferBackground", "removeUpload", [ids]);
+    exec(success,fail, "FileTransferBackground", "removeUpload", [id]);
+}
+
+FileTransferManager.prototype.cancel = function (success, fail) {
+
+    exec(success,fail, "FileTransferBackground", "cancel", []);
 }
 /**
  * Listen for an event.
