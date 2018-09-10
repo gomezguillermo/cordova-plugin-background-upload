@@ -40,7 +40,9 @@ public class FileTransferBackground extends CordovaPlugin {
       if (action.equalsIgnoreCase("initManager")) {
         this.initManager(args.length() > 0 ? args.get(0).toString() : null, callbackContext);
       } else if (action.equalsIgnoreCase("removeUpload")) {
-        this.removeUpload(args.length() > 0 ? (JSONArray) args.get(0) : null, callbackContext);
+        this.removeUpload(args.length() > 0 ? args.get(0).toString() : null, callbackContext);
+      } else if (action.equalsIgnoreCase("cancel")) {
+        this.cancel(callbackContext);
       } else {
         uploadCallback = callbackContext;
         upload(args.length() > 0 ? (JSONArray) args.get(0) : null, uploadCallback);
@@ -144,7 +146,6 @@ public class FileTransferBackground extends CordovaPlugin {
 
                     try {
                       LogMessage("App cancel");
-                      //updateStateForUpload(payload.id, UploadState.CANCELLED, null);
 
                       JSONObject objResult = new JSONObject();
                       objResult.put("id", payload.id);
@@ -180,17 +181,41 @@ public class FileTransferBackground extends CordovaPlugin {
     Log.d("FileTransferBG", message);
   }
 
-  private void removeUpload(JSONArray fileIds, CallbackContext callbackContext) {
+  private void removeUpload(String fileId, CallbackContext callbackContext) {
     try {
-      for(int i=0; i < fileIds.length(); i++) {
-        String fileId = fileIds.getString(i);
+      if (fileId == null)
+        return;
 
-        if (fileId == null)
-          return;
+      LogMessage("stopping upload: " + fileId );
+      UploadService.stopUpload(fileId);
+      removeUploadInfoFile(fileId);
+      PluginResult res = new PluginResult(PluginResult.Status.OK);
+      res.setKeepCallback(true);
+      callbackContext.sendPluginResult(res);
+    } catch (Exception e) {
+      e.printStackTrace();
+      PluginResult errorResult = new PluginResult(PluginResult.Status.ERROR, e.toString());
+      errorResult.setKeepCallback(true);
+      callbackContext.sendPluginResult(errorResult);
+    }
+  }
 
-        LogMessage("stopping id:" + fileId);
-        UploadService.stopUpload(fileId);
-        removeUploadInfoFile(fileId);
+  private void cancel( CallbackContext callbackContext) {
+    JSONArray uploads = getUploadHistory();
+    JSONObject upload;
+    String fileId;
+
+    try {
+      for( int i =0; i < uploads.length(); i++)
+      {
+          upload = uploads.getJSONObject(i);
+
+          fileId = upload.getString("id");
+
+          LogMessage("cancelling upload: " + fileId );
+
+          UploadService.stopUpload(fileId);
+          removeUploadInfoFile(fileId);
       }
       PluginResult res = new PluginResult(PluginResult.Status.OK);
       res.setKeepCallback(true);
@@ -224,8 +249,6 @@ public class FileTransferBackground extends CordovaPlugin {
           uploadJson.put("serverResponse", serverResponse != null ? serverResponse : "");
         }
         //delete old file
-        LogMessage("*******************************************************");
-        LogMessage("writing to logs:" + uploadDirectoryName + fileId);
         removeUploadInfoFile(fileId);
         //write updated file
         storage.createFile(uploadDirectoryName, fileId + ".json", uploadJson.toString());
@@ -237,7 +260,7 @@ public class FileTransferBackground extends CordovaPlugin {
   }
 
   private void removeUploadInfoFile(String fileId) {
-    //storage.deleteFile(uploadDirectoryName, fileId + ".json");
+    storage.deleteFile(uploadDirectoryName, fileId + ".json");
   }
 
   private JSONArray getUploadHistory() {
@@ -270,8 +293,7 @@ public class FileTransferBackground extends CordovaPlugin {
 
       storage = SimpleStorage.getInternalStorage(this.cordova.getActivity().getApplicationContext());
       storage.createDirectory(uploadDirectoryName);
-      LogMessage("*********************************************");
-      LogMessage("created working directory " + storage.toString() );
+      LogMessage("created working directory ");
 
       networkMonitor = new NetworkMonitor(webView.getContext(),new ConnectionStatusListener() {
         @Override
@@ -341,7 +363,6 @@ public class FileTransferBackground extends CordovaPlugin {
         if (state.equalsIgnoreCase(UploadState.FAILED) || state.equalsIgnoreCase(UploadState.STARTED)) {
           failedUploads.put(upload);
         }
-        
       } catch (Exception e) {
         e.printStackTrace();
       }
